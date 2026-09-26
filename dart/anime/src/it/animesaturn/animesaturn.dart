@@ -205,12 +205,51 @@ class AnimeSaturn extends MProvider {
     if (data == null || data.isEmpty || key.isEmpty) {
       return "";
     }
-    final bytes = base64.decode(data);
+    final bytes = decodeBase64(data);
     List<int> decoded = [];
     for (var i = 0; i < bytes.length; i++) {
-      decoded.add(bytes[i] ^ key.codeUnitAt(i % key.length));
+      decoded.add(xorByte(bytes[i], key.codeUnitAt(i % key.length)));
     }
     return utf8.decode(decoded);
+  }
+
+  // Plain base64 decoder: the interpreter can't read Uint8List from base64.decode
+  List<int> decodeBase64(String data) {
+    const alphabet =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    List<int> values = [];
+    for (var i = 0; i < data.length; i++) {
+      final index = alphabet.indexOf(data[i]);
+      if (index >= 0) {
+        values.add(index);
+      }
+    }
+    List<int> bytes = [];
+    for (var i = 0; i + 1 < values.length; i += 4) {
+      final c = i + 2 < values.length ? values[i + 2] : 0;
+      final d = i + 3 < values.length ? values[i + 3] : 0;
+      final n = values[i] * 262144 + values[i + 1] * 4096 + c * 64 + d;
+      bytes.add(n ~/ 65536);
+      if (i + 2 < values.length) {
+        bytes.add((n ~/ 256) % 256);
+      }
+      if (i + 3 < values.length) {
+        bytes.add(n % 256);
+      }
+    }
+    return bytes;
+  }
+
+  int xorByte(int a, int b) {
+    int result = 0;
+    int bit = 1;
+    for (var i = 0; i < 8; i++) {
+      if ((a ~/ bit) % 2 != (b ~/ bit) % 2) {
+        result += bit;
+      }
+      bit *= 2;
+    }
+    return result;
   }
 
   String formatTitle(String titlestring) {
